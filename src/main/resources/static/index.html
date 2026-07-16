@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>校园图书管理系统</title>
+    <style>
+        *{margin:0;padding:0;font-size:16px;box-sizing:border-box;font-family:"Microsoft YaHei",sans-serif;}
+        html,body{height:100%;width:100%;overflow-x:hidden;}
+        body{background:url(/images/tup.png) no-repeat center center;background-size:cover;background-attachment:fixed;}
+        body::before{content:"";position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.15);z-index:-1;}
+        .container{width:95%;max-width:1200px;margin:20px auto;padding:30px;border-radius:12px;background:rgba(255,255,255,0.9);box-shadow:0 4px 20px rgba(0,0,0,0.15);}
+        .login-box{width:420px;padding:40px 35px;background:rgba(255,255,255,0.85);border-radius:16px;box-shadow:0 8px 32px rgba(0,64,153,0.2);backdrop-filter:blur(8px);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+        .login-box h2{color:#004099;margin-bottom:30px;font-size:24px;letter-spacing:2px;}
+        .login-box input{width:100%;padding:12px 15px;margin:12px 0;border:1px solid #e0e0e0;border-radius:8px;font-size:15px;}
+        .login-box .btn-group{margin-top:25px;display:flex;gap:15px;justify-content:center;}
+        h2{color:#004099;margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+        .user-info{text-align:right;font-weight:bold;color:#004099;margin-bottom:15px;font-size:15px;}
+        .top-nav{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:25px;padding-bottom:15px;border-bottom:1px solid #eee;}
+        input,select{padding:10px;border:1px solid #ddd;border-radius:6px;width:220px;margin:8px;}
+        button{padding:10px 22px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;transition:all 0.2s;}
+        .btn-blue{background:#007bff;color:#fff;}
+        .btn-blue:hover{background:#0056b3;transform:translateY(-2px);}
+        .btn-gray{background:#6c757d;color:#fff;}
+        .btn-gray:hover{background:#5a6268;transform:translateY(-2px);}
+        .btn-green{background:#28a745;color:#fff;}
+        .btn-green:hover{background:#218838;transform:translateY(-2px);}
+        .btn-red{background:#dc3545;color:#fff;}
+        .btn-red:hover{background:#c82333;transform:translateY(-2px);}
+        .page{display:none;}
+        .page.active{display:block;}
+        .back-btn{margin-top:20px;background:#28a745;}
+        #resultBox{background:rgba(255,255,255,0.92);padding:16px;border-radius:8px;color:#dc3545;font-weight:bold;min-height:80px;margin-top:15px;}
+        table{width:100%;border-collapse:collapse;margin:15px 0;background:#fff;}
+        table th,table td{border:1px solid #ddd;padding:12px;text-align:center;}
+        table th{background:#007bff;color:#fff;}
+        table tr:nth-child(even){background:#f8f9fa;}
+        .page-bar{display:flex;gap:10px;align-items:center;margin-top:15px;}
+        .search-area{display:flex;gap:15px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+        .mask{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;z-index:99;}
+        .modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:30px;border-radius:10px;z-index:100;display:none;min-width:450px;box-shadow:0 5px 25px rgba(0,0,0,0.2);}
+        .tip-success{color:#28a745;}
+        .form-item{margin:12px 0;}
+    </style>
+</head>
+<body>
+<div class="mask" id="mask"></div>
+<div class="modal" id="successModal">
+    <h2 class="tip-success">✅ 操作完成</h2>
+    <p id="modalText"></p>
+    <button class="btn-blue" onclick="closeModal()">确定</button>
+</div>
+<div class="modal" id="detailModal">
+    <h2>📖 图书完整详情</h2>
+    <div id="detailContent"></div>
+    <button class="btn-gray" onclick="closeModal()">关闭</button>
+</div>
+
+<div id="loginPage" class="page active">
+    <div class="login-box">
+        <h2>🎓 校园图书管理系统</h2>
+        <div class="form-item">
+            <input type="text" placeholder="请输入管理员账号" id="username" value="admin">
+        </div>
+        <div class="form-item">
+            <input type="password" placeholder="请输入登录密码" id="password" value="123456">
+        </div>
+        <div class="btn-group">
+            <button class="btn-blue" onclick="doLogin()">立即登录</button>
+            <button class="btn-gray" onclick="logout()">重置退出</button>
+        </div>
+    </div>
+</div>
+
+<div id="homePage" class="page container">
+    <div class="user-info">当前登录：校园管理员 | 登录时间：<span id="loginTime"></span></div>
+    <h2>🏠 校园图书管理系统 - 功能首页</h2>
+    <div class="top-nav">
+        <button class="btn-blue" onclick="showPage('listPage')">图书查询</button>
+        <button class="btn-blue" onclick="showPage('addPage')">新增图书</button>
+        <button class="btn-blue" onclick="showPage('updatePage')">修改图书</button>
+        <button class="btn-blue" onclick="showPage('deletePage')">删除图书</button>
+        <button class="btn-red" onclick="clearAllBook()">批量清空图书</button>
+    </div>
+    <p>请点击上方功能按钮进行图书管理操作（数据读取自MySQL数据库）</p>
+</div>
+
+<div id="listPage" class="page container">
+    <h2>📖 图书列表查询（MySQL数据）</h2>
+    <!-- 新增模糊搜索区域 -->
+    <div class="search-area">
+        <input placeholder="输入书名模糊搜索" id="searchName">
+        <input placeholder="输入作者模糊搜索" id="searchAuthor">
+        <button class="btn-blue" onclick="searchBook()">🔍 模糊搜索</button>
+        <button class="btn-gray" onclick="resetSearch()">清空搜索条件</button>
+        <button class="btn-green" onclick="getBookList()">刷新全部图书</button>
+    </div>
+    <div id="tableBox"></div>
+    <div class="page-bar">
+        <button onclick="prevPage()">上一页</button>
+        <span>当前第 <span id="currentPage">1</span> 页</span>
+        <button onclick="nextPage()">下一页</button>
+    </div>
+    <button class="back-btn" onclick="showPage('homePage')">返回首页</button>
+</div>
+
+<div id="addPage" class="page container">
+    <h2>📚 新增图书（存入MySQL）</h2>
+    <input placeholder="图书名称" id="bookName">
+    <input placeholder="作者" id="author">
+    <input placeholder="出版社" id="press">
+    <input placeholder="图书分类" id="category">
+    <input placeholder="库存数量" id="bookStock">
+    <br>
+    <button class="btn-blue" onclick="addBook()">提交新增</button>
+    <button class="btn-gray" onclick="resetAddForm()">重置表单</button>
+    <button class="back-btn" onclick="showPage('homePage')">返回首页</button>
+</div>
+
+<div id="updatePage" class="page container">
+    <h2>✏️ 修改图书信息</h2>
+    <input placeholder="图书ID" id="updateId">
+    <input placeholder="新书名" id="newName">
+    <input placeholder="新作者" id="newAuthor">
+    <input placeholder="新出版社" id="newPress">
+    <input placeholder="新分类" id="newCategory">
+    <input placeholder="新库存" id="newStock">
+    <br>
+    <button class="btn-blue" onclick="updateBook()">提交修改</button>
+    <button class="btn-gray" onclick="resetUpdateForm()">重置表单</button>
+    <button class="back-btn" onclick="showPage('homePage')">返回首页</button>
+</div>
+
+<div id="deletePage" class="page container">
+    <h2>🗑️ 删除图书</h2>
+    <input placeholder="待删除图书ID" id="delId">
+    <button class="btn-red" onclick="deleteBook()">删除图书</button>
+    <button class="back-btn" onclick="showPage('homePage')">返回首页</button>
+</div>
+
+<div class="container">
+    <h3>📋 操作执行日志</h3>
+    <div id="resultBox">请先登录系统...</div>
+</div>
+
+<script>
+    let globalToken = "";
+    const baseUrl = "http://127.0.0.1:8080";
+    const allPages = document.querySelectorAll(".page");
+    let pageNum = 1;
+    const pageSize = 5;
+    // 缓存当前搜索条件
+    let searchName = "";
+    let searchAuthor = "";
+
+    function showPage(pageId) {
+        allPages.forEach(page => page.classList.remove("active"));
+        document.getElementById(pageId).classList.add("active");
+    }
+
+    function openModal(text, modalId="successModal") {
+        document.getElementById("mask").style.display = "block";
+        if(modalId === "successModal") document.getElementById("modalText").innerText = text;
+        document.getElementById(modalId).style.display = "block";
+    }
+    function closeModal() {
+        document.getElementById("mask").style.display = "none";
+        document.querySelectorAll(".modal").forEach(m=>m.style.display="none");
+    }
+
+    function printMsg(text) {
+        const time = new Date().toLocaleString();
+        document.getElementById("resultBox").innerText = `[${time}] 操作日志：\n` + text;
+    }
+
+    async function doLogin() {
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+        if (!username) {printMsg("❌ 用户名不能为空");return;}
+        if (!password) {printMsg("❌ 密码不能为空");return;}
+        try {
+            const res = await fetch(`${baseUrl}/login`, {
+                method: "POST",
+                headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({username, password})
+            });
+            const data = await res.json();
+            if (data.code === 200) {
+                globalToken = data.data;
+                printMsg("✅ 登录成功，已连接后端MySQL服务");
+                document.getElementById("loginTime").innerText = new Date().toLocaleString();
+                showPage("homePage");
+            } else {
+                printMsg("❌ " + data.msg);
+            }
+        } catch (err) {
+            printMsg("❌ 请求异常：请启动SpringBoot后端+MySQL服务");
+        }
+    }
+
+    function logout() {
+        globalToken = "";
+        // 清空搜索缓存
+        searchName = "";
+        searchAuthor = "";
+        document.getElementById("username").value = "admin";
+        document.getElementById("password").value = "123456";
+        printMsg("已退出登录");
+        showPage("loginPage");
+    }
+
+    // 1. 查询全部图书（无搜索条件）
+    async function getBookList() {
+        // 清空搜索条件
+        searchName = "";
+        searchAuthor = "";
+        document.getElementById("searchName").value = "";
+        document.getElementById("searchAuthor").value = "";
+        try {
+            const res = await fetch(`${baseUrl}/book/page?pageNum=${pageNum}&pageSize=${pageSize}`, {
+                headers: {"token": globalToken}
+            });
+            const data = await res.json();
+            if(data.code === 200){
+                printMsg("✅ 成功读取全部MySQL图书数据");
+                renderTable(data.data.list);
+                document.getElementById("currentPage").innerText = pageNum;
+            }else{
+                printMsg("❌ 查询失败：" + data.msg);
+            }
+        } catch (err) {
+            printMsg("❌ 查询失败：后端/MySQL未启动");
+        }
+    }
+
+    // 2. 模糊搜索图书
+    async function searchBook() {
+        searchName = document.getElementById("searchName").value.trim();
+        searchAuthor = document.getElementById("searchAuthor").value.trim();
+        pageNum = 1; // 搜索重置到第一页
+        try {
+            const res = await fetch(`${baseUrl}/book/search?pageNum=${pageNum}&pageSize=${pageSize}&name=${searchName}&author=${searchAuthor}`, {
+                headers: {"token": globalToken}
+            });
+            const data = await res.json();
+            if(data.code === 200){
+                printMsg(`✅ 模糊搜索完成，书名关键词：${searchName}，作者关键词：${searchAuthor}`);
+                renderTable(data.data.list);
+                document.getElementById("currentPage").innerText = pageNum;
+            }else{
+                printMsg("❌ 搜索失败：" + data.msg);
+            }
+        } catch (err) {
+            printMsg("❌ 搜索请求异常");
+        }
+    }
+
+    // 清空搜索框
+    function resetSearch(){
+        document.getElementById("searchName").value = "";
+        document.getElementById("searchAuthor").value = "";
+        searchName = "";
+        searchAuthor = "";
+    }
+
+    function renderTable(list){
+        const tableBox = document.getElementById("tableBox");
+        if(!list || list.length === 0){
+            tableBox.innerHTML = "<p style='color:red;font-size:18px'>暂无匹配的图书数据</p>";
+            return;
+        }
+        let html = `<table><tr>
+            <th>图书ID</th>
+            <th>书名</th>
+            <th>作者</th>
+            <th>出版社</th>
+            <th>分类</th>
+            <th>库存</th>
+            <th>操作</th>
+        </tr>`;
+        list.forEach(book => {
+            html += `<tr>
+                <td>${book.id}</td>
+                <td>${book.name}</td>
+                <td>${book.author}</td>
+                <td>${book.press || '无'}</td>
+                <td>${book.category || '无'}</td>
+                <td>${book.stock}</td>
+                <td><button class="btn-blue" onclick="showDetail(${book.id},'${book.name}','${book.author}','${book.press||''}','${book.category||''}',${book.stock})">查看详情</button></td>
+            </tr>`;
+        });
+        html += `</table>`;
+        tableBox.innerHTML = html;
+    }
+
+    function prevPage(){
+        if(pageNum>1){
+            pageNum--;
+            // 判断当前是搜索还是全部查询
+            if(searchName || searchAuthor){
+                searchBook();
+            }else{
+                getBookList();
+            }
+        }
+    }
+    function nextPage(){
+        pageNum++;
+        if(searchName || searchAuthor){
+            searchBook();
+        }else{
+            getBookList();
+        }
+    }
+
+    function showDetail(id,name,author,press,category,stock){
+        const content = `
+            <p>图书ID：${id}</p>
+            <p>书名：${name}</p>
+            <p>作者：${author}</p>
+            <p>出版社：${press||"无"}</p>
+            <p>图书分类：${category||"无"}</p>
+            <p>库存数量：${stock}</p>
+        `;
+        document.getElementById("detailContent").innerHTML = content;
+        openModal("", "detailModal");
+    }
+
+    async function addBook() {
+        if (!globalToken) {printMsg("⚠️ 请先登录系统");return;}
+        const name = document.getElementById("bookName").value.trim();
+        const author = document.getElementById("author").value.trim();
+        const press = document.getElementById("press").value.trim();
+        const category = document.getElementById("category").value.trim();
+        const stock = document.getElementById("bookStock").value.trim();
+        if (!name) {printMsg("❌ 图书名称不能为空");return;}
+        if (!author) {printMsg("❌ 作者不能为空");return;}
+        if (!press) {printMsg("❌ 出版社不能为空");return;}
+        if (!category) {printMsg("❌ 分类不能为空");return;}
+        if (!stock || isNaN(stock)) {printMsg("❌ 库存不合法");return;}
+
+        try {
+            const res = await fetch(`${baseUrl}/book/add`, {
+                method: "POST",
+                headers: {"token": globalToken,"Content-Type":"application/json"},
+                body: JSON.stringify({name, author, press, category, stock:Number(stock)})
+            });
+            const data = await res.json();
+            printMsg(data.msg);
+            openModal("✅ 图书成功存入MySQL数据库");
+            resetAddForm();
+        } catch (err) {
+            printMsg("❌ 新增失败，无法写入MySQL");
+        }
+    }
+    function resetAddForm(){
+        document.getElementById("bookName").value = "";
+        document.getElementById("author").value = "";
+        document.getElementById("press").value = "";
+        document.getElementById("category").value = "";
+        document.getElementById("bookStock").value = "";
+    }
+
+    async function updateBook() {
+        if (!globalToken) {printMsg("⚠️ 请先登录系统");return;}
+        const id = document.getElementById("updateId").value.trim();
+        const newName = document.getElementById("newName").value.trim();
+        const newAuthor = document.getElementById("newAuthor").value.trim();
+        const newPress = document.getElementById("newPress").value.trim();
+        const newCategory = document.getElementById("newCategory").value.trim();
+        const newStock = document.getElementById("newStock").value.trim();
+        if (!id) {printMsg("❌ 图书ID不能为空");return;}
+        if (!newName) {printMsg("❌ 新书名不能为空");return;}
+        if (!newAuthor) {printMsg("❌ 新作者不能为空");return;}
+        try {
+            const res = await fetch(`${baseUrl}/book/update`, {
+                method: "PUT",
+                headers: {"token": globalToken,"Content-Type":"application/json"},
+                body: JSON.stringify({
+                    id:Number(id),
+                    name:newName,
+                    author:newAuthor,
+                    press:newPress,
+                    category:newCategory,
+                    stock:Number(newStock)
+                })
+            });
+            const data = await res.json();
+            printMsg(data.msg);
+            openModal("✅ MySQL图书数据修改成功");
+            resetUpdateForm();
+        } catch (err) {
+            printMsg("❌ 修改失败");
+        }
+    }
+    function resetUpdateForm(){
+        document.getElementById("updateId").value = "";
+        document.getElementById("newName").value = "";
+        document.getElementById("newAuthor").value = "";
+        document.getElementById("newPress").value = "";
+        document.getElementById("newCategory").value = "";
+        document.getElementById("newStock").value = "";
+    }
+
+    async function deleteBook() {
+        if (!globalToken) {printMsg("⚠️ 请先登录系统");return;}
+        const delId = document.getElementById("delId").value.trim();
+        if (!delId) {printMsg("❌ 请输入图书ID");return;}
+        if(!confirm("确认删除MySQL中该条数据？")) return;
+        try {
+            const res = await fetch(`${baseUrl}/book/delete?id=${delId}`, {
+                method: "DELETE",
+                headers: {"token": globalToken}
+            });
+            const data = await res.json();
+            printMsg(data.msg);
+            openModal("✅ 已从MySQL删除图书数据");
+            document.getElementById("delId").value = "";
+        } catch (err) {
+            printMsg("❌ 删除失败");
+        }
+    }
+
+    async function clearAllBook(){
+        if (!globalToken) {printMsg("⚠️ 请先登录系统");return;}
+        if(!confirm("警告：清空MySQL所有图书数据！")) return;
+        try {
+            const res = await fetch(`${baseUrl}/book/clearAll`, {
+                method: "DELETE",
+                headers: {"token": globalToken}
+            });
+            const data = await res.json();
+            printMsg(data.msg);
+            openModal("✅ MySQL图书数据已全部清空");
+        } catch (err) {
+            printMsg("❌ 清空失败");
+        }
+    }
+</script>
+</body>
+</html>

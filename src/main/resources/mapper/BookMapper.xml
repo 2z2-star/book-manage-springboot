@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.test.bookserver.mapper.BookMapper">
+    <!-- 二级缓存，提升接口速度 <200ms -->
+    <cache/>
+
+    <select id="selectAll" resultType="Book">
+        SELECT id,name,author,press,category,stock FROM book
+    </select>
+    <insert id="insertBook" flushCache="true">
+        INSERT INTO book(name,author,press,category,stock)
+        VALUES(#{name},#{author},#{press},#{category},#{stock})
+    </insert>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO book(name,author,press,category,stock)
+        VALUES(#{name},#{author},#{press},#{category},#{stock})
+    </insert>
+
+    <delete id="deleteById">
+        DELETE FROM book WHERE id = #{id}
+    </delete>
+    <update id="updateById" flushCache="true">
+        UPDATE book
+        SET name=#{name},author=#{author},press=#{press},category=#{category},stock=#{stock}
+        WHERE id=#{id}
+    </update>
+
+    <!-- 仅新增这段模糊查询，其余全部保留原样 -->
+    <select id="selectByLike" resultType="Book">
+        SELECT id,name,author,press,category,stock FROM book
+        <where>
+            <if test="name != null and name != ''">
+                name LIKE CONCAT('%',#{name},'%')
+            </if>
+            <if test="author != null and author != ''">
+                AND author LIKE CONCAT('%',#{author},'%')
+            </if>
+        </where>
+    </select>
+</mapper>
